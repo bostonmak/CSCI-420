@@ -14,10 +14,14 @@
 #include <stdio.h>
 #include <iostream>
 #include <vector>
+#include <math.h>
 #include <GL/glu.h>
 #include <GL/glut.h>
 #include "Spline.h"
 #include "Point.h"
+
+const float Pi = 3.14159265358979;
+const float ToRadians = 2 * Pi / 360.0f;
 
 /* state of the world */
 float g_vLandRotate[3] = { 0.0, 0.0, 0.0 };
@@ -29,7 +33,12 @@ int g_iLeftMouseButton = 0;    /* 1 if pressed, 0 if not */
 int g_iMiddleMouseButton = 0;
 int g_iRightMouseButton = 0;
 
-GLuint g_iLineList;
+Pic* g_pFloorTexture;
+Pic* g_pSkyTexture;
+
+GLuint g_iLineList; 
+GLuint g_iFloorList;
+GLuint g_iSkyList;
 
 float g_fMaxDistance = 4.0f;
 float g_s = 0.5;
@@ -126,6 +135,53 @@ void makeLines()
 	glEnd();
 }
 
+void makeFloor()
+{
+	for (int y = 0; y < g_pFloorTexture->ny - 1; y++)
+	{
+		glBegin(GL_TRIANGLE_STRIP);
+		for (int x = 0; x < g_pFloorTexture->nx; x++)
+		{
+			glColor3f(PIC_PIXEL(g_pFloorTexture, x, g_pFloorTexture->ny - (y + 1), 0) / 255.0f, PIC_PIXEL(g_pFloorTexture, x, g_pFloorTexture->ny - (y + 1), 1) / 255.0f, PIC_PIXEL(g_pFloorTexture, x, g_pFloorTexture->ny - (y + 1), 2) / 255.0f);
+			glVertex3f((x / 8.0f) - g_pFloorTexture->nx / 16.0f, ((y + 1) / 8.0f) - g_pFloorTexture->ny / 16.0f, -0.5f);
+			glColor3f(PIC_PIXEL(g_pFloorTexture, x, g_pFloorTexture->ny - y, 0), PIC_PIXEL(g_pFloorTexture, x, g_pFloorTexture->ny - y, 1), PIC_PIXEL(g_pFloorTexture, x, g_pFloorTexture->ny - y, 2));
+			glVertex3f((x / 8.0f) - g_pFloorTexture->nx / 16.0f, (y / 8.0f) - g_pFloorTexture->ny / 16.0f, -0.5f);
+		}
+		glEnd();
+	}
+}
+
+void makeSky()
+{
+	float radius = g_pSkyTexture->nx / 4.0f;
+	for (int z = 0; z < radius; z++)
+	//int z = 0;
+	{
+		glBegin(GL_TRIANGLE_STRIP);
+		for (int x = 0; x <= g_pSkyTexture->nx; x++)
+		{
+			float theta = ((float)x / g_pSkyTexture->nx) * 360 * ToRadians;
+			float phi = ((float)z / radius) * 90 * ToRadians;
+			float layerRadius = radius * cos(phi);
+			float xCoord = layerRadius * cos(theta);
+			float yCoord = layerRadius * sin(theta);
+			float zCoord = radius * sin(phi);
+			glColor3f(PIC_PIXEL(g_pSkyTexture, (int)xCoord * 4, (g_pSkyTexture->ny / 2) + (int)yCoord * 2, 0), PIC_PIXEL(g_pSkyTexture, (int)xCoord * 4, (g_pSkyTexture->ny / 2) + (int)yCoord * 2, 1), PIC_PIXEL(g_pSkyTexture, (int)xCoord * 4, (g_pSkyTexture->ny / 2) + (int)yCoord * 2, 2));
+			glVertex3f(xCoord, yCoord, zCoord);
+
+			theta = ((float)x / g_pSkyTexture->nx) * 360 * ToRadians; 
+			phi = ((float)(z + 1) / radius) * 90 * ToRadians;
+			layerRadius = radius * cos(phi);
+			xCoord = layerRadius * cos(theta);
+			yCoord = layerRadius * sin(theta);
+			zCoord = radius * sin(phi);
+			glColor3f(PIC_PIXEL(g_pSkyTexture, (int)xCoord * 4, (g_pSkyTexture->ny / 2) + (int)yCoord * 2, 0), PIC_PIXEL(g_pSkyTexture, (int)xCoord * 4, (g_pSkyTexture->ny / 2) + (int)yCoord * 2, 1), PIC_PIXEL(g_pSkyTexture, (int)xCoord * 4, (g_pSkyTexture->ny / 2) + (int)yCoord * 2, 2));
+			glVertex3f(xCoord, yCoord, zCoord);
+		}
+		glEnd();
+	}
+}
+
 void myinit()
 {
 	g_iLineList = glGenLists(1);
@@ -133,11 +189,19 @@ void myinit()
 	makeLines();
 	glEndList();
 
+	g_iFloorList = glGenLists(2);
+	glNewList(g_iFloorList, GL_COMPILE);
+	makeFloor();
+	glEndList();
+
+	g_iSkyList = glGenLists(3);
+	glNewList(g_iSkyList, GL_COMPILE);
+	makeSky();
+	glEndList();
+
 	glClearColor(0.0, 0.0, 0.0, 0.0);   // set background color
 	glEnable(GL_DEPTH_TEST);            // enable depth buffering
 	glShadeModel(GL_SMOOTH);            // interpolate colors during rasterization
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);	// enable blending for transparency
-	glEnable(GL_BLEND);
 }
 
 void doIdle()
@@ -154,7 +218,7 @@ void display()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glLoadIdentity(); // reset transformation
 	// look at the center of the image
-	gluLookAt(0.0f, 0.0f, 2.0f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f);
+	gluLookAt(10.0f, -20.0f, 0.0f, 10.0f, 21.0f, 0.0f, 0.0f, 0.0f, 1.0f);
 	// apply transformations
 	glTranslatef(g_vLandTranslate[0], g_vLandTranslate[1], g_vLandTranslate[2]);
 	glRotatef(g_vLandRotate[0], 1, 0, 0);
@@ -163,11 +227,8 @@ void display()
 	glScalef(g_vLandScale[0], g_vLandScale[1], g_vLandScale[2]);
 
 	glCallList(g_iLineList);
-	/*glBegin(GL_LINES);
-	glColor3f(1.0f, 1.0f, 1.0f);
-	glVertex3f(1.0f, 0.0f, 0.0f);
-	glVertex3f(0.0f, -1.0f, 0.0f);
-	glEnd();*/
+	glCallList(g_iFloorList);
+	glCallList(g_iSkyList);
 
 	glutSwapBuffers();
 }
@@ -179,7 +240,7 @@ void reshape(int w, int h)
 	glLoadIdentity();
 
 	//glFrustum(-0.5f, 1.5f, -0.5f, 1.5f, 0.5f, 10.0f);
-	gluPerspective(80.0f, (float)w / h, 0.1f, 100.0f);
+	gluPerspective(80.0f, (float)w / h, 0.1f, 1000.0f);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 }
@@ -278,6 +339,16 @@ int _tmain(int argc, _TCHAR* argv[])
 	{  
 		printf ("usage: %s <trackfile>\n", argv[0]);
 		exit(0);
+	}
+	g_pFloorTexture = jpeg_read("Ground.jpg", NULL);
+	if (!g_pFloorTexture)
+	{
+		printf("no ground texture file found. \n");
+	}
+	g_pSkyTexture = jpeg_read("Sky.jpg", NULL);
+	if (!g_pFloorTexture)
+	{
+		printf("no sky texture file found. \n");
 	}
 	glutInit(&argc, (char**)argv);
 
