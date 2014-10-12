@@ -19,6 +19,7 @@
 #include <GL/glut.h>
 #include "Spline.h"
 #include "Point.h"
+#include "Vector3.h"
 
 const float Pi = 3.14159265358979;
 const float ToRadians = 2 * Pi / 360.0f;
@@ -32,15 +33,21 @@ int g_vMousePos[2] = { 0, 0 };
 int g_iLeftMouseButton = 0;    /* 1 if pressed, 0 if not */
 int g_iMiddleMouseButton = 0;
 int g_iRightMouseButton = 0;
+int textureIndex = 1;
+int cameraIndex = 0;
+int totalPoints = 0;
 
 Pic* g_pFloorTexture;
+Pic* g_pFloorHeight;
 Pic* g_pSkyTexture;
 
 GLuint g_iLineList; 
 GLuint g_iFloorList;
 GLuint g_iSkyList;
+GLuint g_iFloorName;
+GLuint g_iSkyName;
 
-float g_fMaxDistance = 4.0f;
+float g_fMaxDistance = 0.03f;
 float g_s = 0.5;
 float g_mBasisMatrix[16] = {-g_s   , 2 - g_s, g_s - 2    , g_s ,
 							2 * g_s, g_s - 3, 3 - 2 * g_s, -g_s,
@@ -50,6 +57,11 @@ float g_mControlMatrix[12] = {0, 0, 0,
 							  0, 0, 0,
 							  0, 0, 0,
 							  0, 0, 0};
+
+Vector3 g_vCameraPos = Vector3();
+Vector3 g_vCameraForward = Vector3();
+Vector3 g_vCameraUp = Vector3();
+Vector3 g_vCameraRight = Vector3(0, 1, 0);
 
 typedef enum { ROTATE, TRANSLATE, SCALE } CONTROLSTATE;
 CONTROLSTATE g_ControlState = ROTATE;
@@ -61,6 +73,8 @@ struct Spline *g_Splines;
 
 /* total number of splines */
 int g_iNumOfSplines;
+
+std::vector<Point> pointsList;
 
 
 int loadSplines(char *argv) {
@@ -113,47 +127,108 @@ int loadSplines(char *argv) {
 	return 0;
 }
 
+void moveCamera()
+{
+	// Camera Position
+	g_vCameraPos.x = pointsList[cameraIndex].x - 75;
+	g_vCameraPos.y = pointsList[cameraIndex].y - 30;
+	g_vCameraPos.z = pointsList[cameraIndex].z - 6;
+	cameraIndex++;
+	if (cameraIndex >= totalPoints)
+	{
+		cameraIndex = 0;
+	}
+	// Forward Vector (T)
+	g_vCameraForward.x = pointsList[cameraIndex].x - g_vCameraPos.x - 75;
+	g_vCameraForward.y = pointsList[cameraIndex].y - g_vCameraPos.y - 30;
+	g_vCameraForward.z = pointsList[cameraIndex].z - g_vCameraPos.z - 6;
+	Normalize(g_vCameraForward);
+	// Up Vector (N)
+	crossProduct(g_vCameraForward, g_vCameraRight, g_vCameraUp);
+	Normalize(g_vCameraUp);
+	// Right Vector (B) = T x N
+	crossProduct(g_vCameraUp, g_vCameraForward, g_vCameraRight);
+	Normalize(g_vCameraRight);
+}
+
 void makeLines() 
 {
 	glBegin(GL_LINE_STRIP);
 	glColor3f(1.0f, 1.0f, 1.0f);
 	for (int i = 0; i < g_iNumOfSplines; i++) {
-		for (int j = 1; j < g_Splines[i].numControlPoints - 1; j++) {
+		for (int j = 1; j < g_Splines[i].numControlPoints - 2; j++) {
 			std::vector<Point> pList;
 			int index = 1;
 			float u = 0.5f;
+			float uVector[4] = { 0, 0, 0, 0 };
+			float uBasis[4] = { 0, 0, 0, 0 };
 			pList.push_back(g_Splines[i].points[j]);
 			createControlMatrix(j, g_Splines[i], g_mControlMatrix);
 			interpolatePoints(g_Splines[i].points[j], g_Splines[i].points[j + 1],
-				pList, g_mBasisMatrix, g_mControlMatrix, g_fMaxDistance, index, u);
+				pList, g_mBasisMatrix, g_mControlMatrix, g_fMaxDistance, index, u, 0.0f, 1.0f, uVector, uBasis);
 			for (int k = 0; k < index; k++) {
-				glVertex3d(pList[k].x, pList[k].y, pList[k].z);
+				glVertex3d(pList[k].x - 75, pList[k].y - 30, pList[k].z - 6);
+			}
+			for (auto iter = pList.begin(); iter != pList.end(); iter++) {
+				pointsList.push_back(*iter);
+				totalPoints++;
 			}
 		}
-		glVertex3d(g_Splines[i].points[g_Splines[i].numControlPoints - 2].x, g_Splines[i].points[g_Splines[i].numControlPoints - 2].y, g_Splines[i].points[g_Splines[i].numControlPoints - 2].z);
+		pointsList.push_back(g_Splines[i].points[g_Splines[i].numControlPoints - 2]);
+		glVertex3d(g_Splines[i].points[g_Splines[i].numControlPoints - 2].x - 75, g_Splines[i].points[g_Splines[i].numControlPoints - 2].y - 30, g_Splines[i].points[g_Splines[i].numControlPoints - 2].z - 6);
 	}
 	glEnd();
 }
 
+void makeTracks()
+{
+	Vector3 right = Vector3();
+	Vector3 up = Vector3(0, 1, 0);
+	for (int i = 0; i < totalPoints - 1; i++)
+	{
+		Vector3 forward = Vector3(pointsList[i + 1].x - pointsList[i].x, pointsList[i + 1].y - pointsList[i].y, pointsList[i + 1].z - pointsList[i].z);
+		crossProduct(forward, up, right);
+		Normalize(right);
+		Vector3 v0 = Vector3(pointsList[i].x + up.x - right.x, pointsList[i].y + up.y - right.y, pointsList[i].z + up.z - right.z);
+		Vector3 v1 = Vector3(pointsList[i].x + up.x + right.x, pointsList[i].y + up.y + right.y, pointsList[i].z + up.z + right.z);
+		Vector3 v2 = Vector3(pointsList[i].x - up.x + right.x, pointsList[i].y - up.y + right.y, pointsList[i].z - up.z + right.z);
+		Vector3 v3 = Vector3(pointsList[i].x - up.x - right.x, pointsList[i].y - up.y - right.y, pointsList[i].z - up.z - right.z);
+		Vector3 v4 = Vector3(pointsList[i + 1].x + up.x - right.x, pointsList[i + 1].y + up.y - right.y, pointsList[i + 1].z + up.z - right.z);
+		Vector3 v5 = Vector3(pointsList[i + 1].x + up.x + right.x, pointsList[i + 1].y + up.y + right.y, pointsList[i + 1].z + up.z + right.z);
+		Vector3 v6 = Vector3(pointsList[i + 1].x - up.x + right.x, pointsList[i + 1].y - up.y + right.y, pointsList[i + 1].z - up.z + right.z);
+		Vector3 v7 = Vector3(pointsList[i + 1].x - up.x - right.x, pointsList[i + 1].y - up.y - right.y, pointsList[i + 1].z - up.z - right.z);
+
+		glColor3f(0.5f, 0.5f, 0.5f);
+		glVertex3f(v0.x, v0.y, v0.z);
+	}
+}
+
 void makeFloor()
 {
+	glBindTexture(GL_TEXTURE_2D, g_iFloorName);
+	glEnable(GL_TEXTURE_2D);
 	for (int y = 0; y < g_pFloorTexture->ny - 1; y++)
 	{
 		glBegin(GL_TRIANGLE_STRIP);
 		for (int x = 0; x < g_pFloorTexture->nx; x++)
 		{
-			glColor3f(PIC_PIXEL(g_pFloorTexture, x, g_pFloorTexture->ny - (y + 1), 0) / 255.0f, PIC_PIXEL(g_pFloorTexture, x, g_pFloorTexture->ny - (y + 1), 1) / 255.0f, PIC_PIXEL(g_pFloorTexture, x, g_pFloorTexture->ny - (y + 1), 2) / 255.0f);
-			glVertex3f((x / 8.0f) - g_pFloorTexture->nx / 16.0f, ((y + 1) / 8.0f) - g_pFloorTexture->ny / 16.0f, -0.5f);
-			glColor3f(PIC_PIXEL(g_pFloorTexture, x, g_pFloorTexture->ny - y, 0), PIC_PIXEL(g_pFloorTexture, x, g_pFloorTexture->ny - y, 1), PIC_PIXEL(g_pFloorTexture, x, g_pFloorTexture->ny - y, 2));
-			glVertex3f((x / 8.0f) - g_pFloorTexture->nx / 16.0f, (y / 8.0f) - g_pFloorTexture->ny / 16.0f, -0.5f);
+			glTexCoord2f((float)x / g_pFloorTexture->nx, (y + 1) / (float)g_pFloorTexture->ny);
+			glVertex3f(x - (float)g_pFloorTexture->nx / 2, (y + 1) - (float)g_pFloorTexture->ny / 2, PIC_PIXEL(g_pFloorHeight, x, y + 1, 0) / -4.0f + 5.0f);
+			glTexCoord2f((float)x / g_pFloorTexture->nx, y / (float)g_pFloorTexture->ny);
+			glVertex3f(x - (float)g_pFloorTexture->nx / 2, y - (float)g_pFloorTexture->ny / 2, PIC_PIXEL(g_pFloorHeight, x, y, 0) / -4.0f + 5.0f);
 		}
 		glEnd();
 	}
+	glDisable(GL_TEXTURE_2D);
+
+
 }
 
 void makeSky()
 {
-	float radius = g_pSkyTexture->nx / 4.0f;
+	glBindTexture(GL_TEXTURE_2D, g_iSkyName);
+	glEnable(GL_TEXTURE_2D);
+	float radius = g_pSkyTexture->nx / 2.0f;
 	for (int z = 0; z < radius; z++)
 	//int z = 0;
 	{
@@ -166,8 +241,14 @@ void makeSky()
 			float xCoord = layerRadius * cos(theta);
 			float yCoord = layerRadius * sin(theta);
 			float zCoord = radius * sin(phi);
-			glColor3f(PIC_PIXEL(g_pSkyTexture, (int)xCoord * 4, (g_pSkyTexture->ny / 2) + (int)yCoord * 2, 0), PIC_PIXEL(g_pSkyTexture, (int)xCoord * 4, (g_pSkyTexture->ny / 2) + (int)yCoord * 2, 1), PIC_PIXEL(g_pSkyTexture, (int)xCoord * 4, (g_pSkyTexture->ny / 2) + (int)yCoord * 2, 2));
-			glVertex3f(xCoord, yCoord, zCoord);
+			float vectorLength = sqrt(xCoord * xCoord + yCoord * yCoord + zCoord * zCoord);
+			//glColor3f(PIC_PIXEL(g_pSkyTexture, (int)xCoord * 4, (g_pSkyTexture->ny / 2) + (int)yCoord * 2, 0), PIC_PIXEL(g_pSkyTexture, (int)xCoord * 4, (g_pSkyTexture->ny / 2) + (int)yCoord * 2, 1), PIC_PIXEL(g_pSkyTexture, (int)xCoord * 4, (g_pSkyTexture->ny / 2) + (int)yCoord * 2, 2));
+			float tx1 = atan2(xCoord / vectorLength, zCoord /  vectorLength) / (2. * Pi) + 0.5;
+			float ty1 = asin(yCoord / vectorLength) / Pi + .5;
+
+			glTexCoord2f(tx1, ty1);
+
+			glVertex3f(xCoord, yCoord, zCoord - 30);
 
 			theta = ((float)x / g_pSkyTexture->nx) * 360 * ToRadians; 
 			phi = ((float)(z + 1) / radius) * 90 * ToRadians;
@@ -175,11 +256,38 @@ void makeSky()
 			xCoord = layerRadius * cos(theta);
 			yCoord = layerRadius * sin(theta);
 			zCoord = radius * sin(phi);
-			glColor3f(PIC_PIXEL(g_pSkyTexture, (int)xCoord * 4, (g_pSkyTexture->ny / 2) + (int)yCoord * 2, 0), PIC_PIXEL(g_pSkyTexture, (int)xCoord * 4, (g_pSkyTexture->ny / 2) + (int)yCoord * 2, 1), PIC_PIXEL(g_pSkyTexture, (int)xCoord * 4, (g_pSkyTexture->ny / 2) + (int)yCoord * 2, 2));
-			glVertex3f(xCoord, yCoord, zCoord);
+			//glColor3f(PIC_PIXEL(g_pSkyTexture, (int)xCoord * 4, (g_pSkyTexture->ny / 2) + (int)yCoord * 2, 0), PIC_PIXEL(g_pSkyTexture, (int)xCoord * 4, (g_pSkyTexture->ny / 2) + (int)yCoord * 2, 1), PIC_PIXEL(g_pSkyTexture, (int)xCoord * 4, (g_pSkyTexture->ny / 2) + (int)yCoord * 2, 2));
+			vectorLength = sqrt(xCoord * xCoord + yCoord * yCoord + zCoord * zCoord);
+			float tx = atan2(xCoord / vectorLength, zCoord / vectorLength) / (2. * Pi) + 0.5;
+			float ty = asin(yCoord / vectorLength) / Pi + .5;
+			if (tx < 0.75 && tx1 > 0.75)
+				tx += 1.0;
+			else if (tx > 0.75 && tx1 < 0.75)
+				tx -= 1.0;
+			glTexCoord2f(tx, ty);
+			glVertex3f(xCoord, yCoord, zCoord - 30);
 		}
 		glEnd();
 	}
+	glDisable(GL_TEXTURE_2D);
+}
+
+void initTexture(GLuint* textureName, Pic* imagePic)
+{
+	BYTE* data = (BYTE*)malloc(imagePic->nx * imagePic->ny * 3);
+	data = imagePic->pix;
+	glGenTextures(textureIndex, textureName);
+	textureIndex++;
+ 	glBindTexture(GL_TEXTURE_2D, *textureName);
+ 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+ 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+ 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+// 	gluBuild2DMipmaps(GL_TEXTURE_2D, 3, dimX, dimY,
+// 		GL_RGB, GL_UNSIGNED_BYTE, data);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, imagePic->nx, imagePic->ny, 0,
+ 		GL_RGB, GL_UNSIGNED_BYTE, data);
+	free(data);
 }
 
 void myinit()
@@ -189,11 +297,13 @@ void myinit()
 	makeLines();
 	glEndList();
 
+	initTexture(&g_iFloorName, g_pFloorTexture);
 	g_iFloorList = glGenLists(2);
 	glNewList(g_iFloorList, GL_COMPILE);
 	makeFloor();
 	glEndList();
 
+	initTexture(&g_iSkyName, g_pSkyTexture);
 	g_iSkyList = glGenLists(3);
 	glNewList(g_iSkyList, GL_COMPILE);
 	makeSky();
@@ -202,6 +312,8 @@ void myinit()
 	glClearColor(0.0, 0.0, 0.0, 0.0);   // set background color
 	glEnable(GL_DEPTH_TEST);            // enable depth buffering
 	glShadeModel(GL_SMOOTH);            // interpolate colors during rasterization
+
+	
 }
 
 void doIdle()
@@ -216,9 +328,14 @@ void display()
 {
 	// clear buffers
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE,
+		GL_REPLACE);
 	glLoadIdentity(); // reset transformation
 	// look at the center of the image
-	gluLookAt(10.0f, -20.0f, 0.0f, 10.0f, 21.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+	moveCamera();
+	gluLookAt(g_vCameraPos.x, g_vCameraPos.y, g_vCameraPos.z,
+			  g_vCameraPos.x + g_vCameraForward.x, g_vCameraPos.y + g_vCameraForward.y, g_vCameraPos.z + g_vCameraForward.z,
+			  g_vCameraUp.x, g_vCameraUp.y, g_vCameraUp.z);
 	// apply transformations
 	glTranslatef(g_vLandTranslate[0], g_vLandTranslate[1], g_vLandTranslate[2]);
 	glRotatef(g_vLandRotate[0], 1, 0, 0);
@@ -229,6 +346,8 @@ void display()
 	glCallList(g_iLineList);
 	glCallList(g_iFloorList);
 	glCallList(g_iSkyList);
+
+
 
 	glutSwapBuffers();
 }
@@ -345,6 +464,11 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		printf("no ground texture file found. \n");
 	}
+	g_pFloorHeight = jpeg_read("Height.jpg", NULL);
+	if (!g_pFloorHeight)
+	{
+		printf("no ground height file found. \n");
+	}
 	g_pSkyTexture = jpeg_read("Sky.jpg", NULL);
 	if (!g_pFloorTexture)
 	{
@@ -363,8 +487,6 @@ int _tmain(int argc, _TCHAR* argv[])
 	glutDisplayFunc(display);
 	glutReshapeFunc(reshape);
 
-	/* allow the user to quit using the right mouse button menu */
-
 	/* replace with any animate code */
 	glutIdleFunc(doIdle);
 
@@ -378,6 +500,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	/* do initialization */
 	myinit();
+
 
 	glutMainLoop();
 

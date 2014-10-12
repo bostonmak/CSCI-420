@@ -10,11 +10,15 @@ struct Point {
 	double y;
 	double z;
 
+	Point()
+	{
+		x = 0;
+		y = 0;
+		z = 0;
+	}
+
 	float Distance(Point p) {
-		float xDist = p.x - x;
-		float yDist = p.y - y;
-		float zDist = p.z - z;
-		return sqrt(xDist * xDist + yDist * yDist + zDist * zDist);
+		return sqrt((p.x - x) * (p.x - x) + (p.y - y) * (p.y - y) + (p.z - z) * (p.z - z));
 	}
 
 };
