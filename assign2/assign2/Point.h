@@ -21,6 +21,13 @@ struct Point {
 		return sqrt((p.x - x) * (p.x - x) + (p.y - y) * (p.y - y) + (p.z - z) * (p.z - z));
 	}
 
+	bool Equals(Point p) {
+		if (x == p.x && y == p.y && z == p.z)
+		{
+			return true;
+		}
+		return false;
+	}
 };
 
 
