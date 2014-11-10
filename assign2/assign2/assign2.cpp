@@ -48,7 +48,7 @@ GLuint g_iTrackList;
 GLuint g_iFloorName;
 GLuint g_iSkyName;
 
-float g_fMaxDistance = 0.13f;
+float g_fMaxDistance = 0.07f;
 float g_s = 0.5;
 float g_mBasisMatrix[16] = {-g_s   , 2 - g_s, g_s - 2    , g_s ,
 							2 * g_s, g_s - 3, 3 - 2 * g_s, -g_s,
