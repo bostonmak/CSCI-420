@@ -2,7 +2,7 @@
 CSCI 480
 Assignment 3 Raytracer
 
-Name: <Your name here>
+Name: Boston Mak
 */
 
 #include <pic.h>
@@ -72,6 +72,18 @@ void AddAmbient(Vector3& color)
 	if (color.z > 255)
 	{
 		color.z = 255;
+	}
+	if (color.x < 0)
+	{
+		color.x = 0;
+	}
+	if (color.y < 0)
+	{
+		color.y = 0;
+	}
+	if (color.z < 0)
+	{
+		color.z = 0;
 	}
 }
 

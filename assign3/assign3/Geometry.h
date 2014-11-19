@@ -37,9 +37,12 @@ void Sphere::AddLight(Light light, Vector3& color, Vector3& pos)
 	Vector3 center = Vector3(position[0], position[1], position[2]);
 	Vector3 normal = pos - center;
 	Vector3 lightLoc = Vector3(light.position[0], light.position[1], light.position[2]);
+	Vector3 lightNormal = lightLoc - pos;
+	Normalize(lightNormal);
 	Normalize(lightLoc);
 	double dotScale = 2 * Dot(lightLoc - pos, normal);
 	Vector3 n = normal;
+	Normalize(normal);
 	Normalize(n);
 	Multiply(n, dotScale);
 	Vector3 l = lightLoc;
@@ -49,9 +52,9 @@ void Sphere::AddLight(Light light, Vector3& color, Vector3& pos)
 	Vector3 cam = pos;
 	Multiply(cam, -1);
 	Normalize(cam);
-	color.x = color.x * (color_diffuse[0] * Dot(lightLoc - pos, normal) + color_specular[0] * pow(Dot(reflection, cam), shininess));
-	color.y = color.y * (color_diffuse[1] * Dot(lightLoc - pos, normal) + color_specular[1] * pow(Dot(reflection, cam), shininess));
-	color.z = color.z * (color_diffuse[2] * Dot(lightLoc - pos, normal) + color_specular[2] * pow(Dot(reflection, cam), shininess));
+	color.x = color.x * (color_diffuse[0] * Dot(lightNormal, normal) + color_specular[0] * pow(Dot(reflection, cam), shininess));
+	color.y = color.y * (color_diffuse[1] * Dot(lightNormal, normal) + color_specular[1] * pow(Dot(reflection, cam), shininess));
+	color.z = color.z * (color_diffuse[2] * Dot(lightNormal, normal) + color_specular[2] * pow(Dot(reflection, cam), shininess));
 
 }
 
