@@ -32,6 +32,11 @@ struct Vector3
 		return Vector3(lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z);
 	}
 
+	float Magnitude()
+	{
+		return sqrt(x * x + y * y + z * z);
+	}
+
 	static Vector3 Zero();
 };
 

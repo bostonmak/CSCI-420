@@ -158,7 +158,12 @@ void draw_scene()
 						closestIntersection = intersect;
 					}
 					Vector3 tricolor = Vector3(75, 155, 75);
-					AddLight(tricolor, closestIntersection, normal);
+					for (int j = 0; j < num_lights; j++)
+					{
+						triangles[i].AddLight(lights[j], tricolor, closestIntersection);
+					}
+					AddAmbient(tricolor);
+					//AddLight(tricolor, closestIntersection, normal);
 					plot_pixel(xPixel, yPixel, tricolor.x, tricolor.y, tricolor.z);
 					break;
 				}
