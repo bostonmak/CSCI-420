@@ -87,42 +87,44 @@ void AddAmbient(Vector3& color)
 	}
 }
 
-void AddLight(Vector3& color, Vector3& origin, Vector3& normal)
+bool AddShadow(Light light, Vector3& color, Vector3& pos)
 {
-	for (int i = 0; i < num_lights; i++)
+	Vector3 lightLoc = Vector3(light.position[0], light.position[1], light.position[2]);
+	Vector3 lightDir = lightLoc - pos;
+	Ray ray = Ray(pos, lightDir, lightDir.Magnitude());
+	Vector3 furthestIntersect = Vector3::Zero();
+	Vector3 intersect = Vector3::Zero();
+	Vector3 normal = Vector3::Zero();
+	bool collision = false;
+	for (int i = 0; i < num_spheres; i++)
 	{
-		Vector3 lightLoc = Vector3(lights[i].position[0], lights[i].position[1], lights[i].position[2]);
-		Normalize(lightLoc);
-		double dotScale = 2 * Dot(lightLoc - origin, normal);
-		Vector3 n = normal;
-		Normalize(n);
-		Multiply(n, dotScale);
-		Vector3 l = lightLoc;
-		Multiply(l, 2);
-		Vector3 reflection = n - l;
-		Normalize(reflection);
-		Vector3 cam = origin;
-		Multiply(cam, -1);
-		Normalize(cam);
-		color.x = color.x * (lights[i].color[0] * Dot(lightLoc - origin, normal) + lights[i].color[0] * pow(Dot(reflection, cam), 0.5));
-		color.y = color.y * (lights[i].color[1] * Dot(lightLoc - origin, normal) + lights[i].color[1] * pow(Dot(reflection, cam), 0.5));
-		color.z = color.z * (lights[i].color[2] * Dot(lightLoc - origin, normal) + lights[i].color[2] * pow(Dot(reflection, cam), 0.5));
-
+		if (ray.IntersectsSphere(spheres[i], intersect, normal))
+		{
+			if ((intersect - pos).Magnitude() > furthestIntersect.Magnitude())
+			{
+				furthestIntersect = intersect;
+			}
+			collision = true;
+		}
 	}
-	color.x += ambient_light[0] * 255;
-	color.y += ambient_light[1] * 255;
-	color.z += ambient_light[2] * 255;
-	if (color.x > 255)
+	for (int i = 0; i < num_triangles; i++)
 	{
-		color.x = 255;
+		if (ray.IntersectsTriangle(triangles[i], intersect, normal))
+		{
+			if ((intersect - pos).Magnitude() > furthestIntersect.Magnitude())
+			{
+				furthestIntersect = intersect;
+			}
+			collision = true;
+		}
 	}
-	if (color.y > 255)
+	if (collision && (furthestIntersect - pos).Magnitude() > 0.5)
 	{
-		color.y = 255;
+		return true;
 	}
-	if (color.z > 255)
+	else
 	{
-		color.z = 255;
+		return false;
 	}
 }
 
@@ -157,10 +159,13 @@ void draw_scene()
 					{
 						closestIntersection = intersect;
 					}
-					Vector3 tricolor = Vector3(75, 155, 75);
+					Vector3 tricolor = Vector3(0, 0, 0);
 					for (int j = 0; j < num_lights; j++)
 					{
-						triangles[i].AddLight(lights[j], tricolor, closestIntersection);
+						if (!AddShadow(lights[j], tricolor, closestIntersection))
+						{
+							triangles[i].AddLight(lights[j], tricolor, closestIntersection);
+						}
 					}
 					AddAmbient(tricolor);
 					//AddLight(tricolor, closestIntersection, normal);
@@ -178,10 +183,14 @@ void draw_scene()
 					{
 						closestIntersection = intersect;
 					}
-					Vector3 sphereColor = Vector3(255, 75, 75);
+					Vector3 sphereColor = Vector3(0, 0, 0);
 					for (int j = 0; j < num_lights; j++)
 					{
-						spheres[i].AddLight(lights[j], sphereColor, closestIntersection);
+						if (!AddShadow(lights[j], sphereColor, closestIntersection))
+						{
+							spheres[i].AddLight(lights[j], sphereColor, closestIntersection);
+						}
+						
 					}
 					AddAmbient(sphereColor);
 					plot_pixel(xPixel, yPixel, sphereColor.x, sphereColor.y, sphereColor.z);

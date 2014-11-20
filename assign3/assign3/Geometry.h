@@ -52,11 +52,11 @@ void Sphere::AddLight(Light light, Vector3& color, Vector3& pos)
 	Vector3 cam = pos;
 	Multiply(cam, -1);
 	Normalize(cam);
-	color.x = (color_diffuse[0] * 255.0f * Dot(lightNormal, normal) + color_specular[0] * 255.0f * pow(Dot(reflection, cam), shininess));
-	color.y = (color_diffuse[1] * 255.0f * Dot(lightNormal, normal) + color_specular[1] * 255.0f * pow(Dot(reflection, cam), shininess));
-	color.z = (color_diffuse[2] * 255.0f * Dot(lightNormal, normal) + color_specular[2] * 255.0f * pow(Dot(reflection, cam), shininess));
-
+	color.x += (color_diffuse[0] * 255.0f * Dot(lightNormal, normal) + color_specular[0] * 255.0f * pow(Dot(reflection, cam), shininess));
+	color.y += (color_diffuse[1] * 255.0f * Dot(lightNormal, normal) + color_specular[1] * 255.0f * pow(Dot(reflection, cam), shininess));
+	color.z += (color_diffuse[2] * 255.0f * Dot(lightNormal, normal) + color_specular[2] * 255.0f * pow(Dot(reflection, cam), shininess));
 }
+
 
 void Triangle::AddLight(Light light, Vector3& color, Vector3& pos)
 {
@@ -160,8 +160,8 @@ void Triangle::AddLight(Light light, Vector3& color, Vector3& pos)
 	colorC.z = v[2].color_diffuse[2]  * 255.0f * Dot(lightA, normalA) + v[2].color_specular[2]  * 255.0f * pow(Dot(reflectionA, camA), v[2].shininess);
 	Multiply(colorC, ratioC);
 
-	color.x = (colorA.x + colorB.x + colorC.x);
-	color.y = (colorA.y + colorB.y + colorC.y);
-	color.z = (colorA.z + colorB.z + colorC.z);
+	color.x += (colorA.x + colorB.x + colorC.x);
+	color.y += (colorA.y + colorB.y + colorC.y);
+	color.z += (colorA.z + colorB.z + colorC.z);
 
 }
