@@ -87,34 +87,28 @@ void AddAmbient(Vector3& color)
 	}
 }
 
-bool AddShadow(Light light, Vector3& color, Vector3& pos)
+bool AddShadow(Light light, Vector3& color, Vector3& pos, void* shape)
 {
 	Vector3 lightLoc = Vector3(light.position[0], light.position[1], light.position[2]);
 	Vector3 lightDir = lightLoc - pos;
-	Ray ray = Ray(pos, lightDir, lightDir.Magnitude());
+	double lightMagnitude = lightDir.Magnitude();
+	Normalize(lightDir);
+	Ray ray = Ray(pos, lightDir, lightMagnitude);
 	Vector3 furthestIntersect = Vector3::Zero();
 	Vector3 intersect = Vector3::Zero();
 	Vector3 normal = Vector3::Zero();
 	bool collision = false;
 	for (int i = 0; i < num_spheres; i++)
 	{
-		if (ray.IntersectsSphere(spheres[i], intersect, normal))
+		if (ray.IntersectsSphere(spheres[i], intersect, normal) && &spheres[i] != shape)
 		{
-			if ((intersect - pos).Magnitude() > furthestIntersect.Magnitude())
-			{
-				furthestIntersect = intersect;
-			}
 			collision = true;
 		}
 	}
 	for (int i = 0; i < num_triangles; i++)
 	{
-		if (ray.IntersectsTriangle(triangles[i], intersect, normal))
+		if (ray.IntersectsTriangle(triangles[i], intersect, normal) && &triangles[i] != shape)
 		{
-			if ((intersect - pos).Magnitude() > furthestIntersect.Magnitude())
-			{
-				furthestIntersect = intersect;
-			}
 			collision = true;
 		}
 	}
@@ -162,7 +156,7 @@ void draw_scene()
 					Vector3 tricolor = Vector3(0, 0, 0);
 					for (int j = 0; j < num_lights; j++)
 					{
-						if (!AddShadow(lights[j], tricolor, closestIntersection))
+						if (!AddShadow(lights[j], tricolor, closestIntersection, &triangles[i]))
 						{
 							triangles[i].AddLight(lights[j], tricolor, closestIntersection);
 						}
@@ -186,7 +180,7 @@ void draw_scene()
 					Vector3 sphereColor = Vector3(0, 0, 0);
 					for (int j = 0; j < num_lights; j++)
 					{
-						if (!AddShadow(lights[j], sphereColor, closestIntersection))
+						if (!AddShadow(lights[j], sphereColor, closestIntersection, &spheres[i]))
 						{
 							spheres[i].AddLight(lights[j], sphereColor, closestIntersection);
 						}

@@ -148,17 +148,17 @@ void Triangle::AddLight(Light light, Vector3& color, Vector3& pos)
 	colorA.x = v[0].color_diffuse[0]  * 255.0f * Dot(lightA, normalA) + v[0].color_specular[0]  * 255.0f * pow(Dot(reflectionA, camA), v[0].shininess);
 	colorA.y = v[0].color_diffuse[1]  * 255.0f * Dot(lightA, normalA) + v[0].color_specular[1]  * 255.0f * pow(Dot(reflectionA, camA), v[0].shininess);
 	colorA.z = v[0].color_diffuse[2]  * 255.0f * Dot(lightA, normalA) + v[0].color_specular[2]  * 255.0f * pow(Dot(reflectionA, camA), v[0].shininess);
-	Multiply(colorA, ratioA);	
+	Multiply(colorA, ratioB);	
 
 	colorB.x = v[1].color_diffuse[0]  * 255.0f * Dot(lightA, normalA) + v[1].color_specular[0]  * 255.0f * pow(Dot(reflectionA, camA), v[1].shininess);
 	colorB.y = v[1].color_diffuse[1]  * 255.0f * Dot(lightA, normalA) + v[1].color_specular[1]  * 255.0f * pow(Dot(reflectionA, camA), v[1].shininess);
 	colorB.z = v[1].color_diffuse[2]  * 255.0f * Dot(lightA, normalA) + v[1].color_specular[2]  * 255.0f * pow(Dot(reflectionA, camA), v[1].shininess);
-	Multiply(colorB, ratioB);	
+	Multiply(colorB, ratioC);	
 
 	colorC.x = v[2].color_diffuse[0]  * 255.0f * Dot(lightA, normalA) + v[2].color_specular[0]  * 255.0f * pow(Dot(reflectionA, camA), v[2].shininess);
 	colorC.y = v[2].color_diffuse[1]  * 255.0f * Dot(lightA, normalA) + v[2].color_specular[1]  * 255.0f * pow(Dot(reflectionA, camA), v[2].shininess);
 	colorC.z = v[2].color_diffuse[2]  * 255.0f * Dot(lightA, normalA) + v[2].color_specular[2]  * 255.0f * pow(Dot(reflectionA, camA), v[2].shininess);
-	Multiply(colorC, ratioC);
+	Multiply(colorC, ratioA);
 
 	color.x += (colorA.x + colorB.x + colorC.x);
 	color.y += (colorA.y + colorB.y + colorC.y);

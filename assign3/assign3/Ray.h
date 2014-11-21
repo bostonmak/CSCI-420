@@ -32,9 +32,9 @@ bool Ray::IntersectsTriangle(Triangle t, Vector3& out, Vector3& normal)
 	CrossProduct(vertexB - vertexA, vertexC - vertexA, normal);
 	Normalize(normal);
 	// n dot (p' - p)
-	double numerator = Dot(normal, vertexA);
+	double numerator = Dot(normal, vertexA - origin);
 	// n dot r
-	double denominator = Dot(normal, direction - origin);
+	double denominator = Dot(normal, direction);
 	if (std::abs(denominator) < DBL_EPSILON)
 	{
 		return false;
